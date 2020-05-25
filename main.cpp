@@ -14,6 +14,7 @@ using namespace std;
 array<string, 12> command_set = { "dir", "cp", "sum", "cat", "exit", "help",
 								  "initiate",   "createFile", "deleteFile",
 								  "createDir", "deleteDir",  "changeDir", };
+array<string, 4> special_cd_command{ "/", "~", ".", ".." };
 
 unsigned int FindMaxSubstr(string pcStr1, string pcStr2)
 {
@@ -234,40 +235,22 @@ int main()
 		{
 			string dirName;
 			cin >> dirName;
-
-			if (dirName.length() == 1) {
-				if (dirName == "/" || dirName == "~" || dirName == ".")
-				{
+			bool in_special = false;
+			for(int i=0; i<4;++i)
+				if (dirName == special_cd_command[i]) {
 					vector<string> a = { dirName };
 					hardDisk->changeDir(a);
+					in_special = true;
+					break;
 				}
-				else
-				{
-					cout << "Not in special command '/', '~', '.', '..'" << endl;
-					checkFilenameStart(dirName);
-					continue;
-				}
-			}
-			else if (dirName.length() == 2) {
-				if (dirName == "..")
-				{
-					vector<string> a = { dirName };
-					hardDisk->changeDir(a);
-				}
-				else
-				{
-					cout << "Not in special command '/', '~', '.', '..'" << endl;
-					checkFilenameStart(dirName);
-					continue;
-				}
-			}
-			else {
+			if (!in_special)
+			{
 				if (checkFilenameStart(dirName)) continue;
-
 				vector<string> splitString = split(dirName, '/');
 				if (checkFilenameLength(splitString)) continue;
 				hardDisk->changeDir(splitString);
 			}
+			
 			//change directory, pass splitString
 		}
 		else if (s == "dir")
@@ -291,7 +274,7 @@ int main()
 		}
 		else if (s == "sum")
 		{
-			//sum
+			hardDisk->sum();
 		}
 		else if (s == "cat")
 		{

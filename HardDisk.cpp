@@ -1,6 +1,7 @@
 #include "HardDisk.h"
 #include<ctime>
 #include<iostream>
+#include<math.h>
 
 HardDisk::HardDisk()
 {
@@ -22,7 +23,7 @@ void HardDisk::initiate()
 	this->hd_inodeList[0].i_ctime = now;
 	this->hd_inodeList[0].i_mtime = now;
 	this->hd_inodeList[0].i_daddr[0] = 690;  //data block从690开始
-
+	
 	this->hd_currentDirInode = 0;
 	this->hd_currentDir = '/';
 }
@@ -36,7 +37,6 @@ void HardDisk::saveHardDisk()
 {
 
 }
-
 
 int HardDisk::findAvailableBlock()
 {
@@ -324,7 +324,7 @@ vector<string> HardDisk::dir()
 		// get the current dir's inode's block
 		Block tempBlock = this->hd_blockList[this->hd_inodeList[inodeIndex].i_daddr[i] - 690];
 		vector<DirectoryBlockElement> tempVec = tempBlock.readDirectoryBlock();
-		//search whether this block contains the specific name inode index pair
+		
 		for (int j = 0; j < tempVec.size(); j++)
 			if (this->hd_inodeList[tempVec[j].inodeIndex].i_type == 1)
 				filename.push_back(tempVec[j].fileName + "/");
@@ -421,60 +421,63 @@ bool HardDisk::changeDir(vector<string> paths)
 	int currentDirInode = 0;
 	string tempPath;
 
-	if (paths.size() == 1) {
-		string path = paths[0];
-		if (path == "/" || path == "~")
-		{
-			currentDirInode = 0;
-			tempPath = "/";
-		}
-		else if(path == "..")
-		{
-			if (this->hd_currentDirInode == 0)
-				return true;
-			else {
-				
-				vector<string> all_path = split(this->hd_currentDir, '/');
-				all_path.erase(all_path.end() - 1);
-				if (all_path.size() != 0)
+	string path = paths[0];
+	if (path == "/" || path == "~")
+	{
+		this->hd_currentDirInode = 0;
+		this->hd_currentDir = "/";
+		return true;
+	}
+	else if (path == "..")
+	{
+		if (this->hd_currentDirInode == 0)
+			return true;
+		else {
+			vector<string> all_path = split(this->hd_currentDir, '/');
+			all_path.erase(all_path.end() - 1);
+			if (all_path.size() != 0)
+			{
+				for (int i = 0; i < all_path.size(); i++)
 				{
-					for (int i = 0; i < all_path.size(); i++)
-					{
-						int dirInode = findInode(all_path[i], currentDirInode);
-						if (dirInode == -1) return false;
-						currentDirInode = dirInode;
-						tempPath += ("/" + all_path[i]);
-					}
+					int dirInode = findInode(all_path[i], currentDirInode);
+					if (dirInode == -1) return false;
+					currentDirInode = dirInode;
+					tempPath += ("/" + all_path[i]);
 				}
-				else {
-					currentDirInode = 0;
-					tempPath = "/";
-				}
+				this->hd_currentDirInode = currentDirInode;
+				this->hd_currentDir = tempPath;
+				return true;
+			}
+			else {
+				this->hd_currentDirInode = 0;
+				this->hd_currentDir = "/";
+				return true;
+				
 			}
 		}
-		else if (path == ".")
+	}
+	else if (path == ".")
+	{
+		return true;
+	}
+
+	
+	for (int i = 0; i < paths.size(); i++)
+	{
+		if (!isExist(paths[i], currentDirInode, 1))
 		{
-			return true;
+			cout << "Dir: " << paths[i] << " does not exist" << endl;
+			return false;
+		}
+		else
+		{
+			int dirInode = findInode(paths[i], currentDirInode);
+			if (dirInode == -1) return false;
+			currentDirInode = dirInode;
+			tempPath += ("/" + paths[i]);
 		}
 	}
 	
-	else {
-		for (int i = 0; i < paths.size(); i++)
-		{
-			if (!isExist(paths[i], currentDirInode, 1))
-			{
-				cout << "Dir: " << paths[i] << " does not exist" << endl;
-				return false;
-			}
-			else
-			{
-				int dirInode = findInode(paths[i], currentDirInode);
-				if (dirInode == -1) return false;
-				currentDirInode = dirInode;
-				tempPath += ("/" + paths[i]);
-			}
-		}
-	}
 	this->hd_currentDirInode = currentDirInode;
 	this->hd_currentDir = tempPath;
 	return true;
@@ -493,4 +496,90 @@ vector<string> HardDisk::split(const string& str, char delim)
 		prev = pos + 1;
 	} while (pos < str.length() && prev < str.length());
 	return tokens;
+}
+
+void HardDisk::cat(vector<string> filename)
+{
+	//确定这文件是否存在，并找到文件的inode所在
+	int currentDirInode = 0;
+	int fileInode = -1;
+	for (int i = 0; i < filename.size() - 1; ++i) {
+		if (!isExist(filename[i], currentDirInode, 1)) {
+			cerr << "This file is not exist" << endl;
+			return;
+		}
+		else
+		{
+			fileInode = findInode(filename[i], currentDirInode);
+			if (fileInode == -1) {
+				cerr << "This file is not exist" << endl;
+				return;
+			}
+			currentDirInode = fileInode;
+		}
+	}
+	if (fileInode == -1)
+	{
+		cout << "Error in find file inode" << endl;
+	}
+	//开始读取文件内容
+	for (int i = 0; i < 10; i++)
+	{
+		if (this->hd_inodeList[fileInode].i_daddr[i] == 0) break;
+		// get the current dir's inode's block
+		Block tempBlock = this->hd_blockList[this->hd_inodeList[fileInode].i_daddr[i] - 690];
+		char *a = tempBlock.readFileBlock();
+		//print the content
+		for (int i = 0; i < 9999; ++i)
+		{
+			if (a[i] != ' ')
+				cout << a[i];
+			else
+			{
+				cout << endl;
+				break;
+			}
+		}
+	}
+
+	if (this->hd_inodeList[fileInode].i_idaddr == 0) return;
+	Block indirectBlock = this->hd_blockList[this->hd_inodeList[fileInode].i_idaddr - 690];
+	vector<int> addresses = indirectBlock.readIndirectBlock();
+	//search each block pointed by indirect address
+	for (int i = 0; i < addresses.size(); i++)
+	{
+		Block tempBlock = this->hd_blockList[addresses[i] - 690];
+		char* a = tempBlock.readFileBlock();
+		//print the content
+		for (int i = 0; i < 9999; ++i)
+		{
+			if (a[i] != ' ')
+				cout << a[i];
+			else
+			{
+				cout << endl;
+				break;
+			}
+		}
+	}
+}
+
+void HardDisk::sum()
+{
+	
+	double unused_ratio = double(this->hd_superBlock.sb_freeBlockCount) / 15694.0;
+	double used_ratio = 1 - unused_ratio;
+	cout << "There are total 16384 blocks, we use 690 blocks to matian the system" << endl;
+	cout << this->hd_superBlock.sb_freeBlockCount <<
+		"/15694 blocks are unused (" << 100 * unused_ratio << "%)" << endl;
+	cout << 15694 - this->hd_superBlock.sb_freeBlockCount <<
+		"/15694 blocks are used (" << 100 * used_ratio << "%)" << endl;
+
+	int used_storage = 0;
+	for (int i = 0; i < 15694; ++i) {
+		used_storage += this->hd_inodeList[i].i_size;
+	}
+	used_storage = used_storage  + 690 * 1024;
+	double used_storage_ratio = double(used_storage) / 16777216.0;
+	cout << "Used storage is: " << used_storage << "B/16777216B (" << used_storage_ratio * 100 << "%)" << endl;
 }

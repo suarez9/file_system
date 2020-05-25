@@ -32,6 +32,8 @@ public:
 	vector<string> dir();
 	bool changeDir(vector<string>);
 	vector<string> split(const string& str, char delim);
+	void cat(vector<string>);
+	void sum();
 
 public:
 	int hd_currentDirInode;	 // specify which is the current directory
