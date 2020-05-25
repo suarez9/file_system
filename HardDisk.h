@@ -2,7 +2,6 @@
 #include"Superblock.h"
 #include"Inode.h"
 #include"Block.h"
-#include<iostream>
 
 #define INODECOUNT 15694
 #define DATABLOCKCOUNT 15694
@@ -17,13 +16,13 @@ public:
 	void initiate();
 	void loadHardDisk();
 	void saveHardDisk();
-	bool isExist(string);
-	short int findInode(string);
+	bool isExist(string, short int, int);
+	short int findInode(string, short int);
 	bool modifyBlock();
-	bool createDirectory(string, short int&);
+	bool createDirectory(string, short int&, short int);
 	bool createDir(vector<string>);
+	bool deleteDir(vector<string>);
 	void createFile();
-	bool changeDir(string);
 
 public:
 	int hd_currentDirInode;	 // specify which is the current directory

@@ -112,3 +112,9 @@ void Block::writeIndirectBlock(short int addr)
 }
 
 
+void Block::clearBlock()
+{
+	int size = sizeof(this->content) / sizeof(this->content[0]);
+	for (int i = 0; i < size; i++)
+		this->content[i] = ' ';
+}

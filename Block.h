@@ -23,6 +23,7 @@ public:
 	void writeFileBlock();
 	vector<int> readIndirectBlock();
 	void writeIndirectBlock(short int);
+	void clearBlock();
 	//void genFile(int);
 
 public:
