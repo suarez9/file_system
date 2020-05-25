@@ -17,7 +17,8 @@ vector<string> split1(const string& str, char delim)
 
 Block::Block()
 {
-	for (int i = 0; i < 9999; i++)
+	int size = sizeof(this->content) / sizeof(this->content[0]);
+	for (int i = 0; i < size; i++)
 		this->content[i] = ' ';
 }
 
@@ -44,9 +45,28 @@ vector<DirectoryBlockElement> Block::readDirectoryBlock()
 	return temps;
 }
 
+/*
 bool Block::writeDirectoryBlock(char addContent[])
 {
 	return false;
+}*/
+
+void Block::writeDirectoryBlock(string name, short int inode)
+{
+	int blankIndex = 0;
+	while (this->content[blankIndex] != ' ') blankIndex++;
+	// 写入dir name
+	for (int i = 0; i < name.size(); i++)
+		this->content[blankIndex + i] = name[i];
+	// 添加'|'
+	this->content[blankIndex + name.size()] = '|';
+	blankIndex += (name.size() + 1);
+	// 写入inode index
+	string temp = to_string(inode);
+	for (int i = 0; i < temp.size(); i++)
+		this->content[blankIndex + i] = temp[i];
+	// 添加'|'
+	this->content[blankIndex + temp.size()] = '|';
 }
 
 char* Block::readFileBlock()
@@ -79,9 +99,16 @@ vector<int> Block::readIndirectBlock()
 	return temps;
 }
 
-void Block::writeIndirectBlock()
+void Block::writeIndirectBlock(short int addr)
 {
-
+	int blankIndex = 0;
+	while (this->content[blankIndex] != ' ') blankIndex++;
+	// 写入 addr
+	string temp = to_string(addr);
+	for (int i = 0; i < temp.size(); i++)
+		this->content[blankIndex + i] = temp[i];
+	// 添加'|'
+	this->content[blankIndex + temp.size()] = '|';
 }
 
 

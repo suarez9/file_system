@@ -206,7 +206,7 @@ int main()
 
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-
+			
 			hardDisk->createDir(splitString);
 		}
 		else if (s == "deleteDir")

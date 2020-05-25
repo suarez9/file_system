@@ -99,26 +99,87 @@ bool HardDisk::modifyBlock()
 
 bool HardDisk::createDirectory(string name, short int& inode)
 {
-	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount==0) return false;
+	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount == 0) return false;
 
 	int currentSize = this->hd_inodeList[this->hd_currentDirInode].i_size;
 	//如果不够空间增加新的dir
 	if (currentSize + 16 > FILEMAXSIZE * 1024)
 		return false;
 
-
 	//改变当前inode的block 增加新dir
+	//新dir可以写在10个直接地址的block里
+	int writeBlockAddr = 0;
+	if (currentSize + 16 <= 10 * 1024)
+	{
+		//新的dir要添加在第几个daddr指向的block
+		int daddrIndex = (currentSize + 16 - 1) / 1024;
+		//此inode要占用新的block
+		if (this->hd_superBlock.sb_freeBlockCount == 0) return false;
+		if (currentSize % 1024 == 0)
+		{
+			//find available block
+			int availableBlock = 0;
+			for (int i = 0; i < DATABLOCKCOUNT; i++)
+				if (this->hd_superBlock.sb_blockBitmap[i] == 0)
+					availableBlock = i;
+			this->hd_inodeList[this->hd_currentDirInode].i_daddr[daddrIndex] = availableBlock + 690;
+			//change hardDisk state
+			this->hd_superBlock.sb_freeBlockCount -= 1;
+			this->hd_superBlock.sb_blockBitmap[availableBlock] = 1;
+		}
+		int writeBlockAddr = this->hd_inodeList[this->hd_currentDirInode].i_daddr[daddrIndex];
+		this->hd_blockList[writeBlockAddr - 690].writeDirectoryBlock(name, inode);
+	}
+	//新dir要写在idaddr指向的block里
+	else
+	{
+		//此inode要创建储存idaddr的block
+		if (this->hd_superBlock.sb_freeBlockCount == 0) return false;
+		if (this->hd_inodeList[this->hd_currentDirInode].i_idaddr == 0)
+		{
+			//find available block
+			int availableBlock = 0;
+			for (int i = 0; i < DATABLOCKCOUNT; i++)
+				if (this->hd_superBlock.sb_blockBitmap[i] == 0)
+					availableBlock = i;
+			this->hd_inodeList[this->hd_currentDirInode].i_idaddr = availableBlock + 690;
+			//change hardDisk state
+			this->hd_superBlock.sb_freeBlockCount -= 1;
+			this->hd_superBlock.sb_blockBitmap[availableBlock] = 1;
+		}
 
-
-	
+		//此inode要占用新的idaddr指向的block
+		if (this->hd_superBlock.sb_freeBlockCount == 0) return false;
+		if (currentSize % 1024 == 0)
+		{
+			//find available block
+			int availableBlock = 0;
+			for (int i = 0; i < DATABLOCKCOUNT; i++)
+				if (this->hd_superBlock.sb_blockBitmap[i] == 0)
+					availableBlock = i;
+			int idaddr = this->hd_inodeList[this->hd_currentDirInode].i_idaddr;
+			//将新占用的block的地址写入idaddr block
+			this->hd_blockList[idaddr - 690].writeIndirectBlock(availableBlock + 690);
+			//change hardDisk state
+			this->hd_superBlock.sb_freeBlockCount -= 1;
+			this->hd_superBlock.sb_blockBitmap[availableBlock] = 1;
+		}
+		//新的dir要添加在idaddr指向的第几个block
+		int idaddrIndex = (currentSize + 16 - 1) / 1024 - 10;
+		Block tempBlock = this->hd_blockList[this->hd_inodeList[this->hd_currentDirInode].i_idaddr - 690];
+		vector<int> tempVec = tempBlock.readIndirectBlock();
+		this->hd_blockList[tempVec[idaddrIndex] - 690].writeDirectoryBlock(name, inode);
+	}
 
 	//find available inode
 	int availableInode = 0;
 	for (int i = 0; i < INODECOUNT; i++)
 		if (this->hd_superBlock.sb_inodeBitmap[i] == 0)
 			availableInode = i;
+
 	//find available block
-	int availableBlock = 690;
+	if (this->hd_superBlock.sb_freeBlockCount == 0) return false;
+	int availableBlock = 0;
 	for (int i = 0; i < DATABLOCKCOUNT; i++)
 		if (this->hd_superBlock.sb_blockBitmap[i] == 0)
 			availableBlock = i;
@@ -128,6 +189,7 @@ bool HardDisk::createDirectory(string name, short int& inode)
 	this->hd_superBlock.sb_freeInodeCount -= 1;
 	this->hd_superBlock.sb_inodeBitmap[availableInode] = 1;
 	this->hd_superBlock.sb_blockBitmap[availableBlock] = 1;
+
 	//初始化inode
 	this->hd_inodeList[availableInode].i_type = 1;
 	this->hd_inodeList[availableInode].i_size = 0;

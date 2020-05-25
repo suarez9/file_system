@@ -8,7 +8,6 @@ SuperBlock::SuperBlock()
 	this->sb_inodeBlockCount = 328 ;		
 	this->sb_freeBlockCount = this->sb_blockCount - this->sb_superBlockCount - this->sb_inodeBlockCount;				
 	this->sb_freeInodeCount = this->sb_freeBlockCount;
-	std::cout << this->sb_freeBlockCount << std::endl;
 	for (int i = 0; i < this->sb_freeBlockCount; i++)
 	{
 		this->sb_blockBitmap[i] = 0;

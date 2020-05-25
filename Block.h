@@ -17,12 +17,13 @@ public:
 	Block();
 	~Block() {};
 	vector<DirectoryBlockElement> readDirectoryBlock();
-	bool writeDirectoryBlock(char[]);
+	//bool writeDirectoryBlock(char[]);
+	void writeDirectoryBlock(string, short int);
 	char* readFileBlock();
 	void writeFileBlock();
 	vector<int> readIndirectBlock();
-	void writeIndirectBlock();
-	void genFile(int);
+	void writeIndirectBlock(short int);
+	//void genFile(int);
 
 public:
 	char content[9999];
