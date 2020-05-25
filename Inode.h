@@ -6,6 +6,7 @@ class Inode
 public:
 	Inode();
 	~Inode() {};
+	void clearInode();
 
 public:
 	unsigned short int i_type;				// regular file (0) or directory (1)

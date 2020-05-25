@@ -143,14 +143,23 @@ bool checkFilenameLength(vector<string> vec)
 	int fileNameSize = vec.back().length();
 	if (fileNameSize > NAMEMAXSIZE)		//if file name is too long
 	{
-		cout << "Error! File/Directory name is too long!" << endl;
+		cout << "Error! File/Directory name is too long!\n" << endl;
 		return true;
 	}
 	return false;
 }
 
+
 //global hardDisk
 HardDisk *hardDisk = new HardDisk();
+
+
+void dir() {
+	vector<string>filename = hardDisk->dir();
+	
+	for (int i = 0; i < filename.size(); ++i)
+		cout << filename[i] << endl;
+}
 
 int main()
 {
@@ -161,9 +170,10 @@ int main()
 
 	while (1)
 	{
+		cout << "(" << hardDisk->hd_currentDir << ")" ;
 		cout << "$ ";
 		cin >> s;
-		if (s == "initiate")
+		if (s == "ini")
 		{
 			hardDisk->initiate();
 		}
@@ -198,7 +208,7 @@ int main()
 
 			//delete file, pass splitString
 		}
-		else if (s == "createDir")
+		else if (s == "cdir")
 		{
 			string dirName;
 			cin >> dirName;
@@ -220,20 +230,49 @@ int main()
 
 			//delete directory, pass splitString
 		}
-		else if (s == "changeDir")
+		else if (s == "cd")
 		{
 			string dirName;
 			cin >> dirName;
-			if (checkFilenameStart(dirName)) continue;
 
-			vector<string> splitString = split(dirName, '/');
-			if (checkFilenameLength(splitString)) continue;
+			if (dirName.length() == 1) {
+				if (dirName == "/" || dirName == "~" || dirName == ".")
+				{
+					vector<string> a = { dirName };
+					hardDisk->changeDir(a);
+				}
+				else
+				{
+					cout << "Not in special command '/', '~', '.', '..'" << endl;
+					checkFilenameStart(dirName);
+					continue;
+				}
+			}
+			else if (dirName.length() == 2) {
+				if (dirName == "..")
+				{
+					vector<string> a = { dirName };
+					hardDisk->changeDir(a);
+				}
+				else
+				{
+					cout << "Not in special command '/', '~', '.', '..'" << endl;
+					checkFilenameStart(dirName);
+					continue;
+				}
+			}
+			else {
+				if (checkFilenameStart(dirName)) continue;
 
+				vector<string> splitString = split(dirName, '/');
+				if (checkFilenameLength(splitString)) continue;
+				hardDisk->changeDir(splitString);
+			}
 			//change directory, pass splitString
 		}
 		else if (s == "dir")
 		{
-			//dir
+			dir();
 		}
 		else if (s == "cp")
 		{

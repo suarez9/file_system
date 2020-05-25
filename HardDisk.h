@@ -16,18 +16,29 @@ public:
 	void initiate();
 	void loadHardDisk();
 	void saveHardDisk();
-	bool isExist(string, short int, int);
-	short int findInode(string, short int);
+	int findAvailableBlock();
+	int findAvailableInode();
+	bool isExist(string, int, int);
+	short int findInode(string, int);
 	bool modifyBlock();
-	bool createDirectory(string, short int&, short int);
+	bool createDirectory(string, int&, int);
 	bool createDir(vector<string>);
+	bool deleteDirectory(int);
 	bool deleteDir(vector<string>);
 	void createFile();
+	bool deleteFile(vector<string>);
+	void releaseBlock(int);
+	void releaseInode(int);
+	vector<string> dir();
+	bool changeDir(vector<string>);
+	vector<string> split(const string& str, char delim);
 
 public:
 	int hd_currentDirInode;	 // specify which is the current directory
+	string hd_currentDir;
 	SuperBlock hd_superBlock;
 	Inode hd_inodeList[INODECOUNT];
 	Block hd_blockList[DATABLOCKCOUNT];
+
 };
 
