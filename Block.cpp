@@ -1,7 +1,7 @@
 #include "Block.h"
-#include <iostream>
 #include <stdlib.h>
 #include <time.h>
+#include<iostream>
 
 vector<string> split1(const string& str, char delim)
 {
@@ -77,6 +77,11 @@ string Block::readFileBlock()
 	return contents[0];
 }
 
+char* Block::readFileBlock(int)
+{
+	return this->content;
+}
+
 void Block::writeFileBlock(int len)
 {
 	srand(time(NULL));
@@ -105,6 +110,11 @@ void Block::writeFileBlock(string text)
 		this->content[i] = text[i];
 	}
 	this->content[text.size()] = '|';
+}
+
+void Block::writeFileBlock(char*)
+{
+
 }
 
 vector<int> Block::readIndirectBlock()

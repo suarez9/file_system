@@ -2,6 +2,7 @@
 #include"Superblock.h"
 #include"Inode.h"
 #include"Block.h"
+#include<map>
 
 #define INODECOUNT 15694
 #define DATABLOCKCOUNT 15694
@@ -15,14 +16,12 @@ public:
 	~HardDisk() {};
 	
 	void initiate();
-	void loadHardDisk();
-	void saveHardDisk(int, string, string);
-	void saveHardDisk2();
 	int findAvailableBlock();
 	int findAvailableInode();
 	bool addToDirectoryBlock(int, int, string, int);
+	bool deleteFromDirectoryBlock(int, int, string, int);
 	bool isExist(string, int, int);
-	short int findInode(string, int);
+	short int findInode(string, int, int);
 	bool createDirectory(string, int&, int);
 	bool createDir(vector<string>);
 	bool deleteDirectory(int);
@@ -33,6 +32,10 @@ public:
 	void releaseBlock(int);
 	void releaseInode(int);
 
+	void loadHardDisk();
+	void saveHardDisk(int, string, string);
+	void saveSystemConfig();
+	string readTxt_all(string file, int size);
 	int calculate_size(int);
 	void dir();
 	bool changeDir(vector<string>);
@@ -46,6 +49,7 @@ public:
 	SuperBlock hd_superBlock;
 	Inode hd_inodeList[INODECOUNT];
 	Block hd_blockList[DATABLOCKCOUNT];
+	map<int, string> Hash;
 
 };
 

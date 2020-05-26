@@ -1,7 +1,6 @@
 #pragma once
 #include<vector>
 #include<string>
-#include<iostream>
 using namespace std;
 
 #define NAMEMAXSIZE 14
@@ -20,8 +19,10 @@ public:
 	vector<DirectoryBlockElement> readDirectoryBlock();
 	void writeDirectoryBlock(string, short int);
 	string readFileBlock();
+	char* readFileBlock(int);
 	void writeFileBlock(int);
 	void writeFileBlock(string);
+	void writeFileBlock(char*);
 	vector<int> readIndirectBlock();
 	void writeIndirectBlock(short int);
 	void clearBlock();

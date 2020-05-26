@@ -3,17 +3,11 @@
 #include<ctime>
 #include<iostream>
 #include<fstream>
-
+#include <cassert>
+#include <string>
 
 HardDisk::HardDisk()
-{
-	/*
-	cout << this->hd_superBlock.sb_freeBlockCount << endl;
-	cout << this->hd_superBlock.sb_freeInodeCount << endl;
-	for (int i = 0; i < 15694; i++)
-		cout << this->hd_superBlock.sb_blockBitmap[i];
-	cout << endl;
-	*/
+{	
 }
 
 void HardDisk::initiate()
@@ -34,17 +28,112 @@ void HardDisk::initiate()
 
 	this->hd_currentDirInode = 0;
 	this->hd_currentDir = '/';
+	this->Hash.insert({0, "\\"});
 }
 
 void HardDisk::loadHardDisk()
 {
+	initiate();
+	ifstream infile;
+	string file = "C:\\Users\\USER\\Desktop\\new\\config.txt";
+	string root_path = "C:\\Users\\USER\\Desktop\\new";
 
+	ifstream test_in(file);
+	if (!test_in) {
+		saveSystemConfig();
+	}
+
+	infile.open(file.data());   //将文件流对象与文件连接起来 
+	assert(infile.is_open());   //若失败,则输出错误消息,并终止程序运行 
+
+	string s;
+	vector<string> info;
+	vector<string> path;
+	while (getline(infile, s))
+	{
+		info = split(s, ' ');
+		//处理根目录
+		if (info[1] == "/") {
+			this->hd_inodeList[0].i_ctime = stol(info[3]);
+			this->hd_inodeList[0].i_mtime = stol(info[4]);
+		}
+		else {
+			//处理文件夹
+			if (info[0] =="1") {
+				path = split(info[1], '\\');
+				createDir(path);
+				//set time
+				int currentDirInode = 0;
+				for (int i = 0; i < path.size(); i++)
+				{
+					int dirInode = findInode(path[i], currentDirInode, 1);
+					currentDirInode = dirInode;
+				}
+				this->hd_inodeList[currentDirInode].i_ctime = stol(info[3]);
+				this->hd_inodeList[currentDirInode].i_mtime = stol(info[4]);	
+			}
+			//处理文件
+			else {
+				path = split(info[1], '\\');
+				createFile(path, stoi(info[2]) / 1024);
+				//set time 
+				int currentDirInode = 0;
+				for (int i = 0; i < path.size() - 1; i++)
+				{
+					int dirInode = findInode(path[i], currentDirInode, 0);
+					currentDirInode = dirInode;
+				}
+				// 寻找需要复制file的inode
+				int fileInode = findInode(path[path.size() - 1], currentDirInode, 0);
+				this->hd_inodeList[fileInode].i_ctime = stol(info[3]);
+				this->hd_inodeList[fileInode].i_mtime = stol(info[4]);
+				
+				//set content
+				string content;
+				string local_path = "";
+				string text;
+				for (int i = 0; i < path.size(); ++i)
+					local_path += "\\" + path[i];
+				local_path = root_path + local_path;
+				content = readTxt_all(local_path, stoi(info[2]));
+				int count = 0;
+				for (int i = 0; i < 10; ++i) {
+					if (this->hd_inodeList[fileInode].i_daddr[i] == 0) break;
+					text = "";
+					for (int k = 0; k < 1024; ++k)
+						text += content[k + count];
+					this->hd_blockList[this->hd_inodeList[fileInode].i_daddr[i] - 690].writeFileBlock(text);
+					count += 1024;
+				}
+				
+				if (this->hd_inodeList[fileInode].i_idaddr != 0)
+				{
+					Block indirectBlock = this->hd_blockList[this->hd_inodeList[fileInode].i_idaddr - 690];
+					vector<int> addresses = indirectBlock.readIndirectBlock();
+					//search each block pointed by indirect address
+					for (int i = 0; i < addresses.size(); i++)
+					{
+						text = "";
+						for (int k = 0; k < 1024; ++k)
+							text += content[k + count];
+						this->hd_blockList[addresses[i] - 690].writeFileBlock(text);
+						count += 1024;
+					}
+				}
+			}
+		}
+	}
+	
+	
+	infile.close();             //关闭文件输入流 
+	
 }
 
 void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_path)
 {
 	string name;
 	string command;
+
 	for (int i = 0; i < 10; i++)
 	{
 		if (this->hd_inodeList[inodeIndex].i_daddr[i] == 0) break;
@@ -54,6 +143,9 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 		for (int j = 0; j < tempVec.size(); j++)
 			if (this->hd_inodeList[tempVec[j].inodeIndex].i_type == 1)
 			{
+				name = local_path + tempVec[j].fileName;
+				this->Hash.insert({ tempVec[j].inodeIndex , name });
+
 				name = absolute_path + tempVec[j].fileName;
 				command = "mkdir " + name;
 				system(command.c_str());
@@ -64,7 +156,9 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 			else
 			{
 				name = local_path + tempVec[j].fileName;
+				this->Hash.insert({ tempVec[j].inodeIndex , name });
 				string text = cat(split(name, '\\'));
+
 				name = absolute_path + tempVec[j].fileName;
 				ofstream out(name);
 				if (!out)
@@ -75,7 +169,6 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 
 	if (this->hd_inodeList[inodeIndex].i_idaddr != 0)
 	{
-		cout << "!=0\n";
 		Block indirectBlock = this->hd_blockList[this->hd_inodeList[inodeIndex].i_idaddr - 690];
 		vector<int> addresses = indirectBlock.readIndirectBlock();
 		//search each block pointed by indirect address
@@ -87,6 +180,9 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 			for (int j = 0; j < tempVec.size(); j++)
 				if (this->hd_inodeList[tempVec[j].inodeIndex].i_type == 1)
 				{
+					name = local_path + tempVec[j].fileName;
+					this->Hash.insert({ tempVec[j].inodeIndex , name });
+
 					name = absolute_path + tempVec[j].fileName;
 					command = "mkdir " + name;
 					system(command.c_str());
@@ -97,7 +193,9 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 				else
 				{
 					name = local_path + tempVec[j].fileName;
+					this->Hash.insert({ tempVec[j].inodeIndex , name });
 					string text = cat(split(name, '\\'));
+
 					name = absolute_path + tempVec[j].fileName;
 					ofstream out(name);
 					if (!out)
@@ -109,11 +207,28 @@ void HardDisk::saveHardDisk(int inodeIndex, string absolute_path, string local_p
 	
 }
 
-void HardDisk::saveHardDisk2()
+void HardDisk::saveSystemConfig()
 {
+	
+	ofstream out("C:\\Users\\USER\\Desktop\\new\\config.txt");
+	if (!out)
+		cerr << "Error in storage to the computer." << endl;
+	string name;
+	int inodeIndex = -1;
 
-
-
+	map<int, string>::iterator it;
+	for (it = Hash.begin(); it != Hash.end(); it++) {
+		name = it->second;
+		inodeIndex = it->first;
+		out << setw(4) << left << this->hd_inodeList[inodeIndex].i_type;
+		out << setw(20) << left << name;
+		out << setw(10) << left << this->hd_inodeList[inodeIndex].i_size;
+		out << setw(15) << left << this->hd_inodeList[inodeIndex].i_ctime;
+		out << setw(15) << left << this->hd_inodeList[inodeIndex].i_mtime;
+		if (inodeIndex == 0)
+			name = "";
+		out << endl;
+	}
 }
 
 int HardDisk::findAvailableBlock()
@@ -148,9 +263,8 @@ int HardDisk::findAvailableInode()
 
 bool HardDisk::addToDirectoryBlock(int currentSize, int fatherInode, string name, int sonInode)
 {
-	//改变fatherInode的block 增加新dir
+	//改变fatherInode的block 增加新pair
 	//新dir可以写在10个直接地址的block里
-	int writeBlockAddr = 0;
 	if (currentSize + 16 <= 10 * 1024)
 	{
 		//新的dir要添加在第几个daddr指向的block
@@ -211,6 +325,145 @@ bool HardDisk::addToDirectoryBlock(int currentSize, int fatherInode, string name
 	}
 }
 
+bool HardDisk::deleteFromDirectoryBlock(int currentSize, int fatherInode, string name, int type)
+{
+	//改变fatherInode的block 删除pair
+	//特定pair在10个直接地址的block里
+	int locateBlockAddr = 0;
+	int lastBlockAddr = this->hd_inodeList[fatherInode].i_daddr[(currentSize - 1) / 1024];
+	vector<DirectoryBlockElement> locateBlockVec;
+	if (currentSize <= 10 * 1024)
+	{
+		for (int i = 0; i < 10; i++)
+		{
+			if (this->hd_inodeList[fatherInode].i_daddr[i] == 0) break;
+			// get the current dir's inode's block
+			Block tempBlock = this->hd_blockList[this->hd_inodeList[fatherInode].i_daddr[i] - 690];
+			locateBlockVec = tempBlock.readDirectoryBlock();
+			//search whether this block contains the specific name inode index pair
+			for (int j = 0; j < locateBlockVec.size(); j++)
+				if (name == locateBlockVec[j].fileName)
+					if (this->hd_inodeList[locateBlockVec[j].inodeIndex].i_type == type)
+					{
+						locateBlockAddr = this->hd_inodeList[fatherInode].i_daddr[i];
+						break;
+					}
+		}
+		Block tempBlock = this->hd_blockList[lastBlockAddr - 690];
+		vector<DirectoryBlockElement> lastBlockVec = tempBlock.readDirectoryBlock();
+		// 删除特定的pair 并从lastBlock移动最后1个元素到locateBlock填补空缺
+		locateBlockVec.push_back(lastBlockVec.back());
+		// 重写locateBlock
+		this->hd_blockList[locateBlockAddr - 690].clearBlock();
+		for (int i = 0; i < locateBlockVec.size(); i++)
+			//  只添加除特定pair以外的pair
+			if (locateBlockVec[i].fileName != name || this->hd_inodeList[locateBlockVec[i].inodeIndex].i_type != type)
+				this->hd_blockList[locateBlockAddr - 690].writeDirectoryBlock(locateBlockVec[i].fileName, locateBlockVec[i].inodeIndex);
+
+		// 重写lastBlock 如果lastBlock还有pair 如果lastBlock不同于locateBlock
+		if (lastBlockAddr != locateBlockAddr)
+		{
+			if ((currentSize - 16) % 1024 != 0)
+			{
+				this->hd_blockList[lastBlockAddr - 690].clearBlock();
+				// 只添加除最后1个pair之外的pair
+				for (int i = 0; i < lastBlockVec.size() - 1; i++)
+					//  只添加除特定pair以外的pair
+					if (lastBlockVec[i].fileName != name || this->hd_inodeList[lastBlockVec[i].inodeIndex].i_type != type)
+						this->hd_blockList[lastBlockAddr - 690].writeDirectoryBlock(lastBlockVec[i].fileName, lastBlockVec[i].inodeIndex);
+			}
+			else if (currentSize - 16 != 0)
+			{
+				releaseBlock(lastBlockAddr - 690);
+				this->hd_inodeList[fatherInode].i_daddr[(currentSize - 1) / 1024] = 0;
+			}
+		}
+	}
+	//pair在idaddr指向的block里
+	else
+	{
+		vector<DirectoryBlockElement> locateBlockVec;
+		vector<int> idaddrVec = this->hd_blockList[this->hd_inodeList[fatherInode].i_idaddr - 690].readIndirectBlock();
+		int locateBlockAddr = 0;
+		int lastBlockAddr = idaddrVec.back();
+		// 此pair在10个直接地址指向的block里
+		for (int i = 0; i < 10; i++)
+		{
+			if (this->hd_inodeList[fatherInode].i_daddr[i] == 0) break;
+			// get the current dir's inode's block
+			Block tempBlock = this->hd_blockList[this->hd_inodeList[fatherInode].i_daddr[i] - 690];
+			locateBlockVec = tempBlock.readDirectoryBlock();
+			//search whether this block contains the specific name inode index pair
+			for (int j = 0; j < locateBlockVec.size(); j++)
+				if (name == locateBlockVec[j].fileName)
+					if (this->hd_inodeList[locateBlockVec[j].inodeIndex].i_type == type)
+					{
+						locateBlockAddr = this->hd_inodeList[fatherInode].i_daddr[i];
+						break;
+					}
+		}
+		// 此pair在idaddr间接指向的block里
+		if (locateBlockAddr == 0)
+		{
+			for (int i = 0; i < idaddrVec.size(); i++)
+			{
+				Block tempBlock = this->hd_blockList[idaddrVec[i] - 690];
+				locateBlockVec = tempBlock.readDirectoryBlock();
+				//search whether this block contains the specific name inode index pair
+				for (int j = 0; j < locateBlockVec.size(); j++)
+					if (name == locateBlockVec[j].fileName)
+						if (this->hd_inodeList[locateBlockVec[j].inodeIndex].i_type == type)
+						{
+							locateBlockAddr = idaddrVec[i];
+							break;
+						}
+			}
+		}
+		Block tempBlock = this->hd_blockList[lastBlockAddr - 690];
+		vector<DirectoryBlockElement> lastBlockVec = tempBlock.readDirectoryBlock();
+		// 删除特定的pair 并从lastBlock移动最后1个元素到locateBlock填补空缺
+		locateBlockVec.push_back(lastBlockVec.back());
+		// 重写locateBlock
+		this->hd_blockList[locateBlockAddr - 690].clearBlock();
+		for (int i = 0; i < locateBlockVec.size(); i++)
+			//  只添加除特定pair以外的pair
+			if (locateBlockVec[i].fileName != name || this->hd_inodeList[locateBlockVec[i].inodeIndex].i_type != type)
+				this->hd_blockList[locateBlockAddr - 690].writeDirectoryBlock(locateBlockVec[i].fileName, locateBlockVec[i].inodeIndex);
+
+		// 重写lastBlock 如果lastBlock还有pair 如果lastBlock不同于locateBlock
+		if (lastBlockAddr != locateBlockAddr)
+		{
+			if ((currentSize - 16) % 1024 != 0)
+			{
+				this->hd_blockList[lastBlockAddr - 690].clearBlock();
+				// 只添加除最后1个pair之外的pair
+				for (int i = 0; i < lastBlockVec.size() - 1; i++)
+					//  只添加除特定pair以外的pair
+					if (lastBlockVec[i].fileName != name || this->hd_inodeList[lastBlockVec[i].inodeIndex].i_type != type)
+						this->hd_blockList[lastBlockAddr - 690].writeDirectoryBlock(lastBlockVec[i].fileName, lastBlockVec[i].inodeIndex);
+			}
+			else
+			{
+				releaseBlock(lastBlockAddr - 690);
+				// 如果删除完 idaddr间接指向的block还有pair
+				if ((currentSize - 16) > 10 * 1024)
+				{
+					// 更改indirectBlock
+					this->hd_blockList[this->hd_inodeList[fatherInode].i_idaddr - 690].clearBlock();
+					for (int j = 0; j < idaddrVec.size() - 1; j++)
+						this->hd_blockList[this->hd_inodeList[fatherInode].i_idaddr - 690].writeIndirectBlock(idaddrVec[j]);
+				}
+				else
+				{
+					releaseBlock(this->hd_inodeList[fatherInode].i_idaddr - 690);
+					this->hd_inodeList[fatherInode].i_idaddr = 0;
+				}
+			}
+		}
+	}
+	return true;
+}
+
 // 判断当前dir 是否存在给定的name 
 bool HardDisk::isExist(string name, int inodeIndex, int type)
 {
@@ -245,7 +498,7 @@ bool HardDisk::isExist(string name, int inodeIndex, int type)
 }
 
 // 寻找给定name对应的inode index
-short int HardDisk::findInode(string name, int inodeIndex)
+short int HardDisk::findInode(string name, int inodeIndex, int type)
 {
 	for (int i = 0; i < 10; i++)
 	{
@@ -255,7 +508,9 @@ short int HardDisk::findInode(string name, int inodeIndex)
 		vector<DirectoryBlockElement> tempVec = tempBlock.readDirectoryBlock();
 		//search whether this block contains the specific pair
 		for (int j = 0; j < tempVec.size(); j++)
-			if (name == tempVec[j].fileName) return tempVec[j].inodeIndex;
+			if (name == tempVec[j].fileName)
+				if (this->hd_inodeList[tempVec[j].inodeIndex].i_type == type)
+					return tempVec[j].inodeIndex;
 	}
 
 	if (this->hd_inodeList[inodeIndex].i_idaddr == 0) return -1;
@@ -268,29 +523,42 @@ short int HardDisk::findInode(string name, int inodeIndex)
 		vector<DirectoryBlockElement> tempVec = tempBlock.readDirectoryBlock();
 		//search whether this block contains the specific pair
 		for (int j = 0; j < tempVec.size(); j++)
-			if (name == tempVec[j].fileName) return tempVec[j].inodeIndex;
+			if (name == tempVec[j].fileName)
+				if (this->hd_inodeList[tempVec[j].inodeIndex].i_type == type)
+					return tempVec[j].inodeIndex;
 	}
 	return -1;
 }
 
 bool HardDisk::createDirectory(string name, int& sonInode, int fatherInode)
 {
-	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount == 0) return false;
+	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount == 0) {
+		cout << "No free iNode or no free block in creating directory" << endl;
+		return false;
+	}
 
 	int currentSize = this->hd_inodeList[fatherInode].i_size;
 	//如果不够空间增加新的dir
-	if (currentSize + 16 > FILEMAXSIZE * 1024) return false;
+	if (currentSize + 16 > FILEMAXSIZE * 1024) {
+		cout << "Size error in creating Directory" << endl;
+		return false;
+	}
 
 	//find available inode
 	int availableInode = findAvailableInode();
-	if (availableInode == -1) return false;
+	if (availableInode == -1) {
+		cout << "No available Inode in creating directory" << endl;
+		return false;
+	}
 	sonInode = availableInode;
-
 	addToDirectoryBlock(currentSize, fatherInode, name, sonInode);
 
 	//find available block
 	int availableBlock = findAvailableBlock();
-	if (availableBlock == -1) return false;
+	if (availableBlock == -1) {
+		cout << "No available block in creating directory" << endl;
+		return false;
+	}
 
 	//change hardDisk state
 	this->hd_superBlock.sb_freeBlockCount -= 1;
@@ -324,7 +592,6 @@ bool HardDisk::createDir(vector<string> paths)
 		if (!isExist(paths[i], currentDirInode, 1))
 		{
 			int dirInode = 0;
-			//若成功创建 进入此dir
 			if (createDirectory(paths[i], dirInode, currentDirInode))
 				currentDirInode = dirInode;
 			else
@@ -332,11 +599,12 @@ bool HardDisk::createDir(vector<string> paths)
 		}
 		else
 		{
-			int dirInode = findInode(paths[i], currentDirInode);
+			int dirInode = findInode(paths[i], currentDirInode, 1);
 			if (dirInode == -1) return false;
 			currentDirInode = dirInode;
 		}
 	}
+	//这里可能需要一个current dir的变换
 	return true;
 }
 
@@ -375,7 +643,7 @@ bool HardDisk::deleteDir(vector<string> paths)
 		if (!isExist(paths[i], currentDirInode, 1)) return false;
 		else
 		{
-			int dirInode = findInode(paths[i], currentDirInode);
+			int dirInode = findInode(paths[i], currentDirInode, 1);
 			if (dirInode == -1) return false;
 			currentDirInode = dirInode;
 		}
@@ -391,17 +659,23 @@ bool HardDisk::deleteDir(vector<string> paths)
 
 bool HardDisk::createFile(vector<string> paths, float size)
 {
-	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount < size) return false;
+	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount < size) {
+		cout << "No free iNode or block in creating file" << endl;
+		return false;
+	}
 
 	// 进入file所在的dir
 	int currentDirInode = 0;
 	for (int i = 0; i < paths.size() - 1; i++)
 	{
 		// if dir is not exist, return false, else进入此dir 
-		if (!isExist(paths[i], currentDirInode, 1)) return false;
+		if (!isExist(paths[i], currentDirInode, 1)) {
+			cout << "Dir: " << paths[i] << " does not exist" << endl;
+			return false;
+		}
 		else
 		{
-			int dirInode = findInode(paths[i], currentDirInode);
+			int dirInode = findInode(paths[i], currentDirInode, 1);
 			if (dirInode == -1) return false;
 			currentDirInode = dirInode;
 		}
@@ -412,10 +686,11 @@ bool HardDisk::createFile(vector<string> paths, float size)
 
 	//find available inode
 	int availableInode = findAvailableInode();
-	if (availableInode == -1) return false;
-
+	if (availableInode == -1) {
+		cout << "No available iNode in creating file" << endl;
+		return false;
+	}
 	addToDirectoryBlock(currentSize, currentDirInode, paths[paths.size() - 1], availableInode);
-
 	//change hardDisk state
 	this->hd_superBlock.sb_freeInodeCount -= 1;
 	this->hd_superBlock.sb_inodeBitmap[availableInode] = 1;
@@ -433,7 +708,10 @@ bool HardDisk::createFile(vector<string> paths, float size)
 	{
 		//find available block
 		int availableBlock = findAvailableBlock();
-		if (availableBlock == -1) return false;
+		if (availableBlock == -1) {
+			cout << "No available block in creating file" << endl;
+			return false;
+		}
 		//change hardDisk state
 		this->hd_superBlock.sb_freeBlockCount -= 1;
 		this->hd_superBlock.sb_blockBitmap[availableBlock] = 1;
@@ -448,7 +726,10 @@ bool HardDisk::createFile(vector<string> paths, float size)
 		{
 			//find available block
 			int availableBlock = findAvailableBlock();
-			if (availableBlock == -1) return false;
+			if (availableBlock == -1) {
+				cout << "No available block in creating file" << endl;
+				return false;
+			}
 			int len = (this->hd_inodeList[availableInode].i_size - totalSize >= 1024) ? 1024 : (this->hd_inodeList[availableInode].i_size - totalSize);
 			this->hd_blockList[availableBlock].writeFileBlock(len);
 
@@ -465,7 +746,10 @@ bool HardDisk::createFile(vector<string> paths, float size)
 		{
 			//find available block
 			int availableBlock = findAvailableBlock();
-			if (availableBlock == -1) return false;
+			if (availableBlock == -1) {
+				cout << "No available block in creating file" << endl;
+				return false;
+			}
 			int len = (this->hd_inodeList[availableInode].i_size - totalSize >= 1024) ? 1024 : (this->hd_inodeList[availableInode].i_size - totalSize);
 			this->hd_blockList[availableBlock].writeFileBlock(len);
 
@@ -478,11 +762,9 @@ bool HardDisk::createFile(vector<string> paths, float size)
 			this->hd_blockList[this->hd_inodeList[availableInode].i_idaddr - 690].writeIndirectBlock(availableBlock + 690);
 		}
 	}
-
 	//改变父inode
 	this->hd_inodeList[currentDirInode].i_size += 16;
 	this->hd_inodeList[currentDirInode].i_mtime = now;
-
 	return true;
 }
 
@@ -496,13 +778,13 @@ bool HardDisk::deleteFile(vector<string> paths)
 		if (!isExist(paths[i], currentDirInode, 1)) return false;
 		else
 		{
-			int dirInode = findInode(paths[i], currentDirInode);
+			int dirInode = findInode(paths[i], currentDirInode, 1);
 			if (dirInode == -1) return false;
 			currentDirInode = dirInode;
 		}
 	}
 	// 寻找需要删除file的inode
-	int fileInode = findInode(paths[paths.size() - 1], currentDirInode);
+	int fileInode = findInode(paths[paths.size() - 1], currentDirInode, 0);
 	// 找不到file
 	if (fileInode == -1) return false;
 
@@ -519,13 +801,20 @@ bool HardDisk::deleteFile(vector<string> paths)
 		vector<int> tempVec = tempBlock.readIndirectBlock();
 		for (int j = 0; j < tempVec.size(); j++)
 			releaseBlock(tempVec[j] - 690);
+		// 释放indirectblock
+		releaseBlock(this->hd_inodeList[fileInode].i_idaddr - 690);
 	}
-	// 释放idaddr指向的block
-	releaseBlock(this->hd_inodeList[fileInode].i_idaddr - 690);
 	// 释放file的inode
 	releaseInode(fileInode);
 
 	// 修改dir的directoryBlock
+	int currentSize = this->hd_inodeList[currentDirInode].i_size;
+	deleteFromDirectoryBlock(currentSize, currentDirInode, paths[paths.size() - 1], 0);
+
+	//改变父inode
+	this->hd_inodeList[currentDirInode].i_size -= 16;
+	long int now = static_cast<long int>(time(0));
+	this->hd_inodeList[currentDirInode].i_mtime = now;
 
 	return true;
 }
@@ -540,15 +829,14 @@ bool HardDisk::copyFile(vector<string> paths1, vector<string> paths2)
 		if (!isExist(paths1[i], currentDirInode1, 1)) return false;
 		else
 		{
-			int dirInode = findInode(paths1[i], currentDirInode1);
+			int dirInode = findInode(paths1[i], currentDirInode1, 1);
 			if (dirInode == -1) return false;
 			currentDirInode1 = dirInode;
 		}
 	}
 	// 寻找需要复制file的inode
-	int fileInode = findInode(paths1[paths1.size() - 1], currentDirInode1);
+	int fileInode = findInode(paths1[paths1.size() - 1], currentDirInode1, 0);
 	if (fileInode == -1) return false;
-
 	int size = this->hd_inodeList[fileInode].i_size;
 	if (this->hd_superBlock.sb_freeInodeCount == 0 || this->hd_superBlock.sb_freeBlockCount < size / 1024) return false;
 
@@ -560,7 +848,7 @@ bool HardDisk::copyFile(vector<string> paths1, vector<string> paths2)
 		if (!isExist(paths2[i], currentDirInode2, 1)) return false;
 		else
 		{
-			int dirInode = findInode(paths2[i], currentDirInode2);
+			int dirInode = findInode(paths2[i], currentDirInode2, 1);
 			if (dirInode == -1) return false;
 			currentDirInode2 = dirInode;
 		}
@@ -660,8 +948,26 @@ void HardDisk::releaseInode(int inodeIndex)
 	this->hd_superBlock.sb_freeInodeCount += 1;
 }
 
+string HardDisk::readTxt_all(string file, int size)//用于读取已经保存在电脑硬盘中的文件，用来加载系统
+{
+	ifstream infile;
+	infile.open(file.data());   //将文件流对象与文件连接起来 
+	assert(infile.is_open());   //若失败,则输出错误消息,并终止程序运行 
+	int count = 0;
+	char c;
+	string content = "";
+	while (count < size)
+	{
+		infile >> c;
+		content += c;
+		count += 1;
+	}
+	infile.close();             //关闭文件输入流 
+	return content;
+}
 
-int HardDisk::calculate_size(int inodeIndex) {
+int HardDisk::calculate_size(int inodeIndex)//递归函数，用于计算dir里文件的大小
+{
 	int total_size = 0;
 	for (int i = 0; i < 10; i++)
 	{
@@ -699,11 +1005,8 @@ int HardDisk::calculate_size(int inodeIndex) {
 void HardDisk::dir()
 {
 	int inodeIndex = this->hd_currentDirInode;
-	vector<string> filename;
-	vector<time_t> filectime;
-	vector<time_t> filemtime;
-	vector<int> filesize;
-	for (int i = 0; i < 10; i++)
+	vector<string> filename;  vector<time_t> filectime; vector<time_t> filemtime; vector<int> filesize;
+	for (int i = 0; i < 10; i++)//对直接地址进行遍历
 	{
 		if (this->hd_inodeList[inodeIndex].i_daddr[i] == 0) break;
 		// get the current dir's inode's block
@@ -726,7 +1029,7 @@ void HardDisk::dir()
 			}
 	}
 
-	if (this->hd_inodeList[inodeIndex].i_idaddr != 0)
+	if (this->hd_inodeList[inodeIndex].i_idaddr != 0)//对间接地址进行遍历
 	{
 		Block indirectBlock = this->hd_blockList[this->hd_inodeList[inodeIndex].i_idaddr - 690];
 		vector<int> addresses = indirectBlock.readIndirectBlock();
@@ -753,7 +1056,7 @@ void HardDisk::dir()
 				}
 		}
 	}
-
+	//格式化输出
 	const char* wday[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 	cout << setw(15) << left << "filename" << setw(20) << left << "Filesize/B"
 		<< setw(30) << left << "CreateTime" << setw(30) << left << "ModifiedTime" << endl;
@@ -775,7 +1078,7 @@ bool HardDisk::changeDir(vector<string> paths)
 	int currentDirInode = 0;
 	string tempPath;
 
-	string path = paths[0];
+	string path = paths[0];//特殊指令 ~ / . ..
 	if (path == "/" || path == "~")
 	{
 		this->hd_currentDirInode = 0;
@@ -784,7 +1087,7 @@ bool HardDisk::changeDir(vector<string> paths)
 	}
 	else if (path == "..")
 	{
-		if (this->hd_currentDirInode == 0)
+		if (this->hd_currentDirInode == 0)//已经回退到了根目录
 			return true;
 		else {
 			vector<string> all_path = split(this->hd_currentDir, '/');
@@ -793,7 +1096,7 @@ bool HardDisk::changeDir(vector<string> paths)
 			{
 				for (int i = 0; i < all_path.size(); i++)
 				{
-					int dirInode = findInode(all_path[i], currentDirInode);
+					int dirInode = findInode(all_path[i], currentDirInode, 1);
 					if (dirInode == -1) return false;
 					currentDirInode = dirInode;
 					tempPath += ("/" + all_path[i]);
@@ -811,11 +1114,9 @@ bool HardDisk::changeDir(vector<string> paths)
 		}
 	}
 	else if (path == ".")
-	{
 		return true;
-	}
 
-	
+	//非特殊指令
 	for (int i = 0; i < paths.size(); i++)
 	{
 		if (!isExist(paths[i], currentDirInode, 1))
@@ -825,13 +1126,15 @@ bool HardDisk::changeDir(vector<string> paths)
 		}
 		else
 		{
-			int dirInode = findInode(paths[i], currentDirInode);
-			if (dirInode == -1) return false;
+			int dirInode = findInode(paths[i], currentDirInode, 1);
+			if (dirInode == -1) {
+				cout << "Error in finding Dir: " << paths[i] << " iNode" << endl;
+				return false;
+			}
 			currentDirInode = dirInode;
 			tempPath += ("/" + paths[i]);
 		}
 	}
-	
 	this->hd_currentDirInode = currentDirInode;
 	this->hd_currentDir = tempPath;
 	return true;
@@ -854,52 +1157,45 @@ vector<string> HardDisk::split(const string& str, char delim)
 
 string HardDisk::cat(vector<string> paths1)
 {
-	//确定这文件是否存在，并找到文件的inode所在
+	//确定文件是否存在，并找到文件的inode所在
 	int currentDirInode1 = 0;
 	string content;
-	for (int i = 0; i < paths1.size() - 1; i++)
+	for (int i = 0; i < paths1.size() - 1; i++)//注意
 	{
-		// if dir is not exist, return false, else进入此dir 
-		if (!isExist(paths1[i], currentDirInode1, 1)) return "File not exist";
+		if (!isExist(paths1[i], currentDirInode1, 1)) return "Dir " + paths1[i] + " does not exist";
 		else
 		{
-			int dirInode = findInode(paths1[i], currentDirInode1);
-			if (dirInode == -1) return "File not exist";
+			int dirInode = findInode(paths1[i], currentDirInode1, 1);
+			if (dirInode == -1) return "Dir " + paths1[i] + " iNode can not find";
 			currentDirInode1 = dirInode;
 		}
 	}
 	// 寻找需要复制file的inode
-	int fileInode = findInode(paths1[paths1.size() - 1], currentDirInode1);
+	int fileInode = findInode(paths1[paths1.size() - 1], currentDirInode1, 0);
 	if (fileInode == -1) return "File not exist";
+	if (this->hd_inodeList[fileInode].i_type != 0)return "File not exist, you may entered a directory name";
 	//开始读取文件内容
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 10; i++)//读取10个直接地址中的内容
 	{
 		if (this->hd_inodeList[fileInode].i_daddr[i] == 0) break;
 		// get the current dir's inode's block
 		string text = this->hd_blockList[this->hd_inodeList[fileInode].i_daddr[i] - 690].readFileBlock();
-		//cout << text << endl;
 		content += text;
 	}
-
-
 	if (this->hd_inodeList[fileInode].i_idaddr == 0) return content;
 	Block tempBlock = this->hd_blockList[this->hd_inodeList[fileInode].i_idaddr - 690];
 	vector<int> tempVec = tempBlock.readIndirectBlock();
-	for (int i = 0; i < tempVec.size(); i++)
+	for (int i = 0; i < tempVec.size(); i++)//读取到间接地址中的内容，并读取真正的文件地址的内容
 	{
 		//find available block
-		
 		string text = this->hd_blockList[tempVec[i] - 690].readFileBlock();
-		//cout << text << endl;
 		content += text;
 	}
-
 	return content;
 }
 
 void HardDisk::sum()
 {
-	
 	double unused_ratio = double(this->hd_superBlock.sb_freeBlockCount) / 15694.0;
 	double used_ratio = 1 - unused_ratio;
 	cout << "There are total 16384 blocks, we use 690 blocks to matian the system" << endl;

@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -14,6 +15,7 @@ using namespace std;
 array<string, 12> command_set = { "dir", "cp", "sum", "cat", "exit", "help",
 								  "initiate",   "createFile", "deleteFile",
 								  "createDir", "deleteDir",  "changeDir", };
+
 array<string, 4> special_cd_command{ "/", "~", ".", ".." };
 
 unsigned int FindMaxSubstr(string pcStr1, string pcStr2)
@@ -71,7 +73,7 @@ string most_similar(string input) {
 			index = i;
 		}
 	}
-	if (max_size <= 2)
+	if (max_size == 0)
 		return "no similar command";
 	else
 		return command_set[index];
@@ -82,8 +84,8 @@ int  menu()
 	cout << "**********************************Welcome!*********************************" << endl;        
 	cout << "*                              Filesystem by                              *" << endl; 
 	cout << "*                           201730601035 Óà¼Îì÷                           *" << endl;
-	cout << "*                           201730601035 Óà¼Îì÷                           *" << endl;
-	cout << "*           0¡¢ initiate --first time run                                 *" << endl;
+	cout << "*                           201730600458 ÇñÎÄ½õ                           *" << endl;
+	//cout << "*           0¡¢ initiate --first time run                                 *" << endl;
 	cout << "*           1¡¢ createFile <fileName> <fileSize>  --create file           *" << endl;
 	cout << "*           2¡¢ deleteFile <fileName>  --delete file                      *" << endl;
 	cout << "*           3¡¢ createDir <dirName>  --create directory                   *" << endl;
@@ -94,6 +96,7 @@ int  menu()
 	cout << "*           8¡¢ sum  --display storage usage                              *" << endl;
 	cout << "*           9¡¢ cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10¡¢exit  --exit                                              *" << endl;
+	cout << "*           11¡¢help  --help                                              *" << endl;
 	cout << "***************************************************************************" << endl;
 	return 0;
 }
@@ -110,6 +113,7 @@ void help() {
 	cout << "*           8¡¢ sum  --display storage usage                              *" << endl;
 	cout << "*           9¡¢ cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10¡¢exit  --exit                                              *" << endl;
+	cout << "*           11¡¢help  --help                                              *" << endl;
 	cout << "***************************************************************************" << endl;
 }
 
@@ -150,29 +154,22 @@ bool checkFilenameLength(vector<string> vec)
 	return false;
 }
 
-
 //global hardDisk
 HardDisk *hardDisk = new HardDisk();
-
-
 
 int main()
 {
 	menu();
 	string s;
-
 	// load fs
-
+	hardDisk->loadHardDisk();
+	
 	while (1)
 	{
 		cout << "(" << hardDisk->hd_currentDir << ")" ;
 		cout << "$ ";
 		cin >> s;
-		if (s == "ini")
-		{
-			hardDisk->initiate();
-		}
-		else if (s == "cfile")
+		if (s == "cfile")
 		{
 			string fileName;
 			string temp;
@@ -186,16 +183,13 @@ int main()
 				cout << "Wrong path!" << endl;
 				continue;
 			}
-
 			vector<string> splitString = split(fileName, '/');
 			if (checkFilenameLength(splitString)) continue;
-
 			if (fileSize > FILEMAXSIZE)		//if file size is too large, in KB
 			{
 				cout << "Error! File size is too large!" << endl;
 				continue;
 			}
-
 			hardDisk->createFile(splitString, fileSize);
 		}
 		else if (s == "deleteFile")
@@ -203,21 +197,22 @@ int main()
 			string fileName;
 			cin >> fileName;
 			if (checkFilenameStart(fileName)) continue;
-
+			if (fileName == "/")
+			{
+				cout << "Wrong path!" << endl;
+				continue;
+			}
 			vector<string> splitString = split(fileName, '/');
 			if (checkFilenameLength(splitString)) continue;
-
-			//delete file, pass splitString
+			hardDisk->deleteFile(splitString);
 		}
 		else if (s == "cdir")
 		{
 			string dirName;
 			cin >> dirName;
 			if (checkFilenameStart(dirName)) continue;
-
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-			
 			hardDisk->createDir(splitString);
 		}
 		else if (s == "deleteDir")
@@ -225,7 +220,6 @@ int main()
 			string dirName;
 			cin >> dirName;
 			if (checkFilenameStart(dirName)) continue;
-
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
 
@@ -250,8 +244,6 @@ int main()
 				if (checkFilenameLength(splitString)) continue;
 				hardDisk->changeDir(splitString);
 			}
-			
-			//change directory, pass splitString
 		}
 		else if (s == "dir")
 		{
@@ -300,6 +292,7 @@ int main()
 		else if (s == "exit")
 		{
 			hardDisk->saveHardDisk(0, "C:\\Users\\USER\\Desktop\\new\\", "\\");
+			hardDisk->saveSystemConfig();
 			break;
 		}
 		else if (s == "help") {
@@ -307,10 +300,13 @@ int main()
 		}
 		else 
 		{
+			string error_command;
+			getline(cin, error_command);
 			cout << endl;
 			cout << s << " is not a correct command. Type 'help' for help." << endl;
 			cout << "The most similar command is: " << most_similar(s) << endl;
 		}
 		cout << endl;
 	}
+	
 }
