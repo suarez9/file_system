@@ -155,12 +155,6 @@ bool checkFilenameLength(vector<string> vec)
 HardDisk *hardDisk = new HardDisk();
 
 
-void dir() {
-	vector<string>filename = hardDisk->dir();
-	
-	for (int i = 0; i < filename.size(); ++i)
-		cout << filename[i] << endl;
-}
 
 int main()
 {
@@ -178,15 +172,20 @@ int main()
 		{
 			hardDisk->initiate();
 		}
-		else if (s == "createFile")
+		else if (s == "cfile")
 		{
 			string fileName;
 			string temp;
 			cin >> fileName;
 			cin >> temp;
-			int fileSize = stoi(temp);
+			float fileSize = stof(temp);
 
 			if (checkFilenameStart(fileName)) continue;
+			if (fileName == "/")
+			{
+				cout << "Wrong path!" << endl;
+				continue;
+			}
 
 			vector<string> splitString = split(fileName, '/');
 			if (checkFilenameLength(splitString)) continue;
@@ -196,7 +195,8 @@ int main()
 				cout << "Error! File size is too large!" << endl;
 				continue;
 			}
-			//create file, pass splitString
+
+			hardDisk->createFile(splitString, fileSize);
 		}
 		else if (s == "deleteFile")
 		{
@@ -255,7 +255,7 @@ int main()
 		}
 		else if (s == "dir")
 		{
-			dir();
+			hardDisk->dir();
 		}
 		else if (s == "cp")
 		{
@@ -263,14 +263,24 @@ int main()
 			cin >> fileName1;
 			cin >> fileName2;
 			if (checkFilenameStart(fileName1)) continue;
+			if (fileName1 == "/")
+			{
+				cout << "fileName1: Wrong path!" << endl;
+				continue;
+			}
 			if (checkFilenameStart(fileName2)) continue;
+			if (fileName2 == "/")
+			{
+				cout << "fileName2: Wrong path!" << endl;
+				continue;
+			}
 
 			vector<string> splitString1 = split(fileName1, '/');
 			if (checkFilenameLength(splitString1)) continue;
 			vector<string> splitString2 = split(fileName2, '/');
 			if (checkFilenameLength(splitString2)) continue;
 
-			//copy file, pass splitString1 and splitString2
+			hardDisk->copyFile(splitString1, splitString2);
 		}
 		else if (s == "sum")
 		{
@@ -285,10 +295,11 @@ int main()
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
 
-			//print current content, pass splitString
+			cout << hardDisk->cat(splitString) << endl;
 		}
 		else if (s == "exit")
 		{
+			hardDisk->saveHardDisk(0, "C:\\Users\\USER\\Desktop\\new\\", "\\");
 			break;
 		}
 		else if (s == "help") {

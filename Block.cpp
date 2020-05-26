@@ -1,4 +1,7 @@
 #include "Block.h"
+#include <iostream>
+#include <stdlib.h>
+#include <time.h>
 
 vector<string> split1(const string& str, char delim)
 {
@@ -29,27 +32,21 @@ vector<DirectoryBlockElement> Block::readDirectoryBlock()
 	123
 	bgh.fuk
 	2
-	                            
+
 	*/
 	vector<DirectoryBlockElement> temps;
 	string t(this->content);
 	vector<string> datas = split1(t, '|');
-	for (int i = 0; i < datas.size(); i+=2)
+	for (int i = 0; i < datas.size(); i += 2)
 	{
 		if (datas[i][0] == ' ') break;
 		DirectoryBlockElement temp;
 		temp.fileName = datas[i];
-		temp.inodeIndex = (short int)std::stoi(datas[i+1]);
+		temp.inodeIndex = (short int)std::stoi(datas[i + 1]);
 		temps.push_back(temp);
 	}
 	return temps;
 }
-
-/*
-bool Block::writeDirectoryBlock(char addContent[])
-{
-	return false;
-}*/
 
 void Block::writeDirectoryBlock(string name, short int inode)
 {
@@ -69,14 +66,45 @@ void Block::writeDirectoryBlock(string name, short int inode)
 	this->content[blankIndex + temp.size()] = '|';
 }
 
-char* Block::readFileBlock()
+string Block::readFileBlock()
 {
-	return this->content;
+	/*"87aA123A1B2D|                            "
+	87aA123A1B2D
+
+	*/
+	string t(this->content);
+	vector<string> contents = split1(t, '|');
+	return contents[0];
 }
 
-void Block::writeFileBlock()
+void Block::writeFileBlock(int len)
 {
-	
+	srand(time(NULL));
+	for (int i = 0; i < len; ++i)
+	{
+		switch ((rand() % 3))
+		{
+		case 1:
+			this->content[i] = 'A' + rand() % 26;
+			break;
+		case 2:
+			this->content[i] = 'a' + rand() % 26;
+			break;
+		default:
+			this->content[i] = '0' + rand() % 10;
+			break;
+		}
+	}
+	this->content[len] = '|';
+}
+
+void Block::writeFileBlock(string text)
+{
+	for (int i = 0; i < text.size(); i++)
+	{
+		this->content[i] = text[i];
+	}
+	this->content[text.size()] = '|';
 }
 
 vector<int> Block::readIndirectBlock()
@@ -111,7 +139,6 @@ void Block::writeIndirectBlock(short int addr)
 	this->content[blankIndex + temp.size()] = '|';
 }
 
-
 void Block::clearBlock()
 {
 	int size = sizeof(this->content) / sizeof(this->content[0]);
@@ -119,15 +146,13 @@ void Block::clearBlock()
 		this->content[i] = ' ';
 }
 
-
-//used for debug
 void Block::printBlock()
 {
 	int size = sizeof(this->content) / sizeof(this->content[0]);
 	for (int i = 0; i < size; i++)
 	{
 		if (content[i] == ' ') break;
-		std::cout << this->content[i];
+		cout << this->content[i];
 	}
-	std::cout << std::endl;
+	cout << endl;
 }

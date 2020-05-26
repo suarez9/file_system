@@ -19,8 +19,9 @@ public:
 	~Block() {};
 	vector<DirectoryBlockElement> readDirectoryBlock();
 	void writeDirectoryBlock(string, short int);
-	char* readFileBlock();
-	void writeFileBlock();
+	string readFileBlock();
+	void writeFileBlock(int);
+	void writeFileBlock(string);
 	vector<int> readIndirectBlock();
 	void writeIndirectBlock(short int);
 	void clearBlock();

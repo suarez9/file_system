@@ -13,26 +13,31 @@ class HardDisk
 public:
 	HardDisk();
 	~HardDisk() {};
+	
 	void initiate();
 	void loadHardDisk();
-	void saveHardDisk();
+	void saveHardDisk(int, string, string);
+	void saveHardDisk2();
 	int findAvailableBlock();
 	int findAvailableInode();
+	bool addToDirectoryBlock(int, int, string, int);
 	bool isExist(string, int, int);
 	short int findInode(string, int);
-	bool modifyBlock();
 	bool createDirectory(string, int&, int);
 	bool createDir(vector<string>);
 	bool deleteDirectory(int);
 	bool deleteDir(vector<string>);
-	void createFile();
+	bool createFile(vector<string>, float);
 	bool deleteFile(vector<string>);
+	bool copyFile(vector<string>, vector<string>);
 	void releaseBlock(int);
 	void releaseInode(int);
-	vector<string> dir();
+
+	int calculate_size(int);
+	void dir();
 	bool changeDir(vector<string>);
 	vector<string> split(const string& str, char delim);
-	void cat(vector<string>);
+	string cat(vector<string>);
 	void sum();
 
 public:
