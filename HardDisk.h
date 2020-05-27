@@ -24,7 +24,7 @@ public:
 	short int findInode(string, int, int);
 	bool createDirectory(string, int&, int);
 	bool createDir(vector<string>);
-	bool deleteDirectory(int);
+	bool deleteDirectory(vector<string>, int);
 	bool deleteDir(vector<string>);
 	bool createFile(vector<string>, float);
 	bool deleteFile(vector<string>);
@@ -32,11 +32,13 @@ public:
 	void releaseBlock(int);
 	void releaseInode(int);
 
+
 	void loadHardDisk();
 	void saveHardDisk(int, string, string);
 	void saveSystemConfig();
 	string readTxt_all(string file, int size);
 	int calculate_size(int);
+	void changeTime();
 	void dir();
 	bool changeDir(vector<string>);
 	vector<string> split(const string& str, char delim);

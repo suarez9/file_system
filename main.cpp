@@ -13,8 +13,8 @@
 using namespace std;
 
 array<string, 12> command_set = { "dir", "cp", "sum", "cat", "exit", "help",
-								  "initiate",   "createFile", "deleteFile",
-								  "createDir", "deleteDir",  "changeDir", };
+								  "clear",   "createFile", "deleteFile",
+								  "createDir", "deleteDir",  "changeDir"};
 
 array<string, 4> special_cd_command{ "/", "~", ".", ".." };
 
@@ -85,7 +85,6 @@ int  menu()
 	cout << "*                              Filesystem by                              *" << endl; 
 	cout << "*                           201730601035 Óà¼Îì÷                           *" << endl;
 	cout << "*                           201730600458 ÇñÎÄ½õ                           *" << endl;
-	//cout << "*           0¡¢ initiate --first time run                                 *" << endl;
 	cout << "*           1¡¢ createFile <fileName> <fileSize>  --create file           *" << endl;
 	cout << "*           2¡¢ deleteFile <fileName>  --delete file                      *" << endl;
 	cout << "*           3¡¢ createDir <dirName>  --create directory                   *" << endl;
@@ -97,6 +96,7 @@ int  menu()
 	cout << "*           9¡¢ cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10¡¢exit  --exit                                              *" << endl;
 	cout << "*           11¡¢help  --help                                              *" << endl;
+	cout << "*           11¡¢clear --clean the terminal                                *" << endl;
 	cout << "***************************************************************************" << endl;
 	return 0;
 }
@@ -114,6 +114,7 @@ void help() {
 	cout << "*           9¡¢ cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10¡¢exit  --exit                                              *" << endl;
 	cout << "*           11¡¢help  --help                                              *" << endl;
+	cout << "*           11¡¢clear --clean the terminal                                *" << endl;
 	cout << "***************************************************************************" << endl;
 }
 
@@ -160,16 +161,17 @@ HardDisk *hardDisk = new HardDisk();
 int main()
 {
 	menu();
-	string s;
+	string s, command;
 	// load fs
 	hardDisk->loadHardDisk();
-	
+	command = "rmdir /s/q C:\\Users\\USER\\Desktop\\new";
+	system(command.c_str());
 	while (1)
 	{
 		cout << "(" << hardDisk->hd_currentDir << ")" ;
 		cout << "$ ";
 		cin >> s;
-		if (s == "cfile")
+		if (s == "createFile")
 		{
 			string fileName;
 			string temp;
@@ -206,7 +208,7 @@ int main()
 			if (checkFilenameLength(splitString)) continue;
 			hardDisk->deleteFile(splitString);
 		}
-		else if (s == "cdir")
+		else if (s == "createDir")
 		{
 			string dirName;
 			cin >> dirName;
@@ -220,12 +222,16 @@ int main()
 			string dirName;
 			cin >> dirName;
 			if (checkFilenameStart(dirName)) continue;
+			if (dirName == "/")
+			{
+				cout << "Wrong path!" << endl;
+				continue;
+			}
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-
-			//delete directory, pass splitString
+			hardDisk->deleteDir(splitString);
 		}
-		else if (s == "cd")
+		else if (s == "changeDir")
 		{
 			string dirName;
 			cin >> dirName;
@@ -291,12 +297,21 @@ int main()
 		}
 		else if (s == "exit")
 		{
+			command = "mkdir C:\\Users\\USER\\Desktop\\new";
+			system(command.c_str());
+			cout << "Backing up the system for you, please wait" << endl;
 			hardDisk->saveHardDisk(0, "C:\\Users\\USER\\Desktop\\new\\", "\\");
 			hardDisk->saveSystemConfig();
+			command = "xcopy C:\\Users\\USER\\Desktop\\new C:\\Users\\USER\\Desktop\\old /e /y /i /q";
+			system(command.c_str());
 			break;
 		}
 		else if (s == "help") {
 			help();
+		}
+		else if (s == "clear") {
+			cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" << endl;
+			cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" << endl;
 		}
 		else 
 		{

@@ -1,7 +1,7 @@
 #include "Block.h"
 #include <stdlib.h>
 #include <time.h>
-#include<iostream>
+#include <string>
 
 vector<string> split1(const string& str, char delim)
 {
@@ -73,14 +73,11 @@ string Block::readFileBlock()
 
 	*/
 	string t(this->content);
-	vector<string> contents = split1(t, '|');
-	return contents[0];
+	for (int i = 0; i < 1025; ++i)
+		if (t[i] == '|')
+			return t.substr(0, i);
 }
 
-char* Block::readFileBlock(int)
-{
-	return this->content;
-}
 
 void Block::writeFileBlock(int len)
 {
@@ -110,11 +107,6 @@ void Block::writeFileBlock(string text)
 		this->content[i] = text[i];
 	}
 	this->content[text.size()] = '|';
-}
-
-void Block::writeFileBlock(char*)
-{
-
 }
 
 vector<int> Block::readIndirectBlock()
@@ -154,15 +146,4 @@ void Block::clearBlock()
 	int size = sizeof(this->content) / sizeof(this->content[0]);
 	for (int i = 0; i < size; i++)
 		this->content[i] = ' ';
-}
-
-void Block::printBlock()
-{
-	int size = sizeof(this->content) / sizeof(this->content[0]);
-	for (int i = 0; i < size; i++)
-	{
-		if (content[i] == ' ') break;
-		cout << this->content[i];
-	}
-	cout << endl;
 }
