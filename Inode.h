@@ -13,6 +13,6 @@ public:
 	unsigned int i_size;							// size of file (or directory file)
 	unsigned long int i_ctime;				// time that this file is created
 	unsigned long int i_mtime;				//time that this file is modified
-	unsigned short int i_daddr[10];		//direct address array
-	unsigned short int i_idaddr;			//indirect address
+	short int i_daddr[10];		//direct address array
+	short int i_idaddr;			//indirect address
 };

@@ -9,12 +9,14 @@
 #include"Superblock.h"
 
 #define NAMEMAXSIZE 14
+#define LOCAL true
+#define ABSOLUTE false
 
 using namespace std;
 
-array<string, 12> command_set = { "dir", "cp", "sum", "cat", "exit", "help",
+array<string, 13> command_set = { "dir", "cp", "sum", "cat", "exit", "help",
 								  "clear",   "createFile", "deleteFile",
-								  "createDir", "deleteDir",  "changeDir"};
+								  "createDir", "deleteDir",  "changeDir", "reinitiate" };
 
 array<string, 4> special_cd_command{ "/", "~", ".", ".." };
 
@@ -66,14 +68,18 @@ unsigned int FindMaxSubstr(string pcStr1, string pcStr2)
 string most_similar(string input) {
 	int max_size = 0;
 	int index = 0;
+
 	for (int i = 0; i < command_set.size(); ++i) {
-		int size = FindMaxSubstr(command_set[i], input);
-		if (size > max_size) {
-			max_size = size;
-			index = i;
+		if (input[0] == command_set[i][0])
+		{
+			int size = FindMaxSubstr(command_set[i], input);
+			if (size > max_size) {
+				max_size = size;
+				index = i;
+			}
 		}
 	}
-	if (max_size == 0)
+	if (max_size <= 3)
 		return "no similar command";
 	else
 		return command_set[index];
@@ -96,7 +102,8 @@ int  menu()
 	cout << "*           9、 cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10、exit  --exit                                              *" << endl;
 	cout << "*           11、help  --help                                              *" << endl;
-	cout << "*           11、clear --clean the terminal                                *" << endl;
+	cout << "*           12、clear --clean the terminal                                *" << endl;
+	cout << "*           13、reinitiate --reinitialize system, all record will lost    *" << endl;
 	cout << "***************************************************************************" << endl;
 	return 0;
 }
@@ -114,7 +121,8 @@ void help() {
 	cout << "*           9、 cat <fileName>  --print out the file contents             *" << endl;
 	cout << "*           10、exit  --exit                                              *" << endl;
 	cout << "*           11、help  --help                                              *" << endl;
-	cout << "*           11、clear --clean the terminal                                *" << endl;
+	cout << "*           12、clear --clean the terminal                                *" << endl;
+	cout << "*           13、reinitiate --reinitialize system, all record will lost    *" << endl;
 	cout << "***************************************************************************" << endl;
 }
 
@@ -138,7 +146,7 @@ bool checkFilenameStart(string fileName)
 	char start = fileName[0];
 	if (start != '/')			//if path is not started with '/'
 	{
-		cout << "Error! File/Directory name should start with '/'!" << endl;
+		//cout << "Error! File/Directory name should start with '/'!\n" << endl;
 		return true;
 	}
 	return false;
@@ -178,58 +186,74 @@ int main()
 			cin >> fileName;
 			cin >> temp;
 			float fileSize = stof(temp);
-
-			if (checkFilenameStart(fileName)) continue;
 			if (fileName == "/")
 			{
-				cout << "Wrong path!" << endl;
+				cout << "Wrong path!\n" << endl;
 				continue;
 			}
 			vector<string> splitString = split(fileName, '/');
 			if (checkFilenameLength(splitString)) continue;
 			if (fileSize > FILEMAXSIZE)		//if file size is too large, in KB
 			{
-				cout << "Error! File size is too large!" << endl;
+				cout << "Error! File size is too large!\n" << endl;
 				continue;
 			}
-			hardDisk->createFile(splitString, fileSize);
+			if (checkFilenameStart(fileName))
+				hardDisk->createFile(splitString, fileSize, LOCAL);
+			else
+				hardDisk->createFile(splitString, fileSize, ABSOLUTE);
+		}
+		else if (s == "reinitiate") {
+			if (hardDisk->hd_currentDir != "/")
+				cout << "You have to reinitiate the system in root directory" << endl;
+			else
+				hardDisk->reinit();
 		}
 		else if (s == "deleteFile")
 		{
 			string fileName;
 			cin >> fileName;
-			if (checkFilenameStart(fileName)) continue;
+			
 			if (fileName == "/")
 			{
-				cout << "Wrong path!" << endl;
+				cout << "Wrong path!\n" << endl;
 				continue;
 			}
 			vector<string> splitString = split(fileName, '/');
 			if (checkFilenameLength(splitString)) continue;
-			hardDisk->deleteFile(splitString);
+			if (checkFilenameStart(fileName))
+				hardDisk->deleteFile(splitString, LOCAL);
+			else
+				hardDisk->deleteFile(splitString, ABSOLUTE);
+			
 		}
 		else if (s == "createDir")
 		{
 			string dirName;
 			cin >> dirName;
-			if (checkFilenameStart(dirName)) continue;
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-			hardDisk->createDir(splitString);
+			if (checkFilenameStart(dirName)) 
+				hardDisk->createDir(splitString, LOCAL);
+			else
+				hardDisk->createDir(splitString, ABSOLUTE);
 		}
 		else if (s == "deleteDir")
 		{
 			string dirName;
 			cin >> dirName;
-			if (checkFilenameStart(dirName)) continue;
+			
 			if (dirName == "/")
 			{
-				cout << "Wrong path!" << endl;
+				cout << "Wrong path!\n" << endl;
 				continue;
 			}
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-			hardDisk->deleteDir(splitString);
+			if (checkFilenameStart(dirName))
+				hardDisk->deleteDir(splitString, LOCAL);
+			else
+				hardDisk->deleteDir(splitString, ABSOLUTE);
 		}
 		else if (s == "changeDir")
 		{
@@ -239,16 +263,18 @@ int main()
 			for(int i=0; i<4;++i)
 				if (dirName == special_cd_command[i]) {
 					vector<string> a = { dirName };
-					hardDisk->changeDir(a);
+					hardDisk->changeDir(a, ABSOLUTE);
 					in_special = true;
 					break;
 				}
 			if (!in_special)
 			{
-				if (checkFilenameStart(dirName)) continue;
 				vector<string> splitString = split(dirName, '/');
 				if (checkFilenameLength(splitString)) continue;
-				hardDisk->changeDir(splitString);
+				if (checkFilenameStart(dirName))				
+					hardDisk->changeDir(splitString, LOCAL);
+				else
+					hardDisk->changeDir(splitString, ABSOLUTE);
 			}
 		}
 		else if (s == "dir")
@@ -260,16 +286,16 @@ int main()
 			string fileName1, fileName2;
 			cin >> fileName1;
 			cin >> fileName2;
-			if (checkFilenameStart(fileName1)) continue;
+			
 			if (fileName1 == "/")
 			{
-				cout << "fileName1: Wrong path!" << endl;
+				cout << "fileName1: Wrong path!\n" << endl;
 				continue;
 			}
-			if (checkFilenameStart(fileName2)) continue;
+			
 			if (fileName2 == "/")
 			{
-				cout << "fileName2: Wrong path!" << endl;
+				cout << "fileName2: Wrong path!\n" << endl;
 				continue;
 			}
 
@@ -277,8 +303,7 @@ int main()
 			if (checkFilenameLength(splitString1)) continue;
 			vector<string> splitString2 = split(fileName2, '/');
 			if (checkFilenameLength(splitString2)) continue;
-
-			hardDisk->copyFile(splitString1, splitString2);
+			hardDisk->copyFile(splitString1, splitString2, checkFilenameStart(fileName1), checkFilenameStart(fileName2));
 		}
 		else if (s == "sum")
 		{
@@ -288,12 +313,12 @@ int main()
 		{
 			string dirName;
 			cin >> dirName;
-			if (checkFilenameStart(dirName)) continue;
-
 			vector<string> splitString = split(dirName, '/');
 			if (checkFilenameLength(splitString)) continue;
-
-			cout << hardDisk->cat(splitString) << endl;
+			if (checkFilenameStart(dirName))
+				cout << hardDisk->cat(splitString, LOCAL) << endl;
+			else
+				cout << hardDisk->cat(splitString, ABSOLUTE) << endl;	
 		}
 		else if (s == "exit")
 		{
